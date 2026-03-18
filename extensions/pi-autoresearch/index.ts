@@ -134,9 +134,7 @@ interface LogDetails {
 interface AutoresearchRuntime {
   autoresearchMode: boolean;
   dashboardExpanded: boolean;
-  lastAutoResumeTime: number;
   experimentsThisSession: number;
-  autoResumeTurns: number;
   lastRunChecks: { pass: boolean; output: string; duration: number } | null;
   lastRunDuration: number | null;
   runningExperiment: { startedAt: number; command: string } | null;
@@ -696,9 +694,7 @@ function createSessionRuntime(): AutoresearchRuntime {
   return {
     autoresearchMode: false,
     dashboardExpanded: false,
-    lastAutoResumeTime: 0,
     experimentsThisSession: 0,
-    autoResumeTurns: 0,
     lastRunChecks: null,
     lastRunDuration: null,
     runningExperiment: null,
@@ -1097,7 +1093,6 @@ function renderDashboardLines(
 // ---------------------------------------------------------------------------
 
 export default function autoresearchExtension(pi: ExtensionAPI) {
-  const MAX_AUTORESUME_TURNS = 20;
   const BENCHMARK_GUARDRAIL =
     "Be careful not to overfit to the benchmarks and do not cheat on the benchmarks.";
 
@@ -1152,9 +1147,7 @@ export default function autoresearchExtension(pi: ExtensionAPI) {
     runtime.lastRunChecks = null;
     runtime.lastRunDuration = null;
     runtime.runningExperiment = null;
-    runtime.lastAutoResumeTime = 0;
     runtime.experimentsThisSession = 0;
-    runtime.autoResumeTurns = 0;
     runtime.iterationStartTokens = null;
     runtime.iterationTokenHistory = [];
     runtime.state = createExperimentState();
@@ -1295,8 +1288,6 @@ export default function autoresearchExtension(pi: ExtensionAPI) {
       runtimeStore.startPolling(sessionKey, jsonlPath, () => {
         // Re-read state from jsonl without resetting session-specific fields
         const prevExperimentsThisSession = runtime.experimentsThisSession;
-        const prevAutoResumeTurns = runtime.autoResumeTurns;
-        const prevLastAutoResumeTime = runtime.lastAutoResumeTime;
         const prevIsOrchestrator = runtime.isOrchestrator;
         const prevDashboardExpanded = runtime.dashboardExpanded;
         const prevRunningExperiment = runtime.runningExperiment;
@@ -1306,8 +1297,6 @@ export default function autoresearchExtension(pi: ExtensionAPI) {
 
         // Restore session-specific fields that shouldn't be reset by polling
         runtime.experimentsThisSession = prevExperimentsThisSession;
-        runtime.autoResumeTurns = prevAutoResumeTurns;
-        runtime.lastAutoResumeTime = prevLastAutoResumeTime;
         runtime.isOrchestrator = prevIsOrchestrator;
         runtime.dashboardExpanded = prevDashboardExpanded;
         runtime.runningExperiment = prevRunningExperiment;
@@ -1529,42 +1518,11 @@ export default function autoresearchExtension(pi: ExtensionAPI) {
     getRuntime(ctx).experimentsThisSession = 0;
   });
 
-  // Clear running experiment state when agent stops; orchestrator spawns next worker
+  // Clear running experiment state when agent stops
   pi.on("agent_end", async (_event, ctx) => {
     const runtime = getRuntime(ctx);
     runtime.runningExperiment = null;
     if (overlayTui) overlayTui.requestRender();
-
-    if (!runtime.autoresearchMode) return;
-
-    // Only orchestrator sessions auto-resume (workers self-terminate via subagent_done)
-    if (!runtime.isOrchestrator) return;
-
-    // Rate-limit auto-resume to once every 5 minutes
-    const now = Date.now();
-    if (now - runtime.lastAutoResumeTime < 5 * 60 * 1000) return;
-    runtime.lastAutoResumeTime = now;
-
-    if (runtime.autoResumeTurns >= MAX_AUTORESUME_TURNS) {
-      ctx.ui.notify(
-        `Autoresearch auto-resume limit reached (${MAX_AUTORESUME_TURNS} turns)`,
-        "info"
-      );
-      return;
-    }
-
-    // Check if max experiments already reached
-    const workDir = resolveWorkDir(ctx.cwd);
-    const state = runtime.state;
-    if (state.maxExperiments !== null) {
-      const segCount = currentResults(state.results, state.currentSegment).length;
-      if (segCount >= state.maxExperiments) return;
-    }
-
-    runtime.autoResumeTurns++;
-    pi.sendUserMessage(
-      `Autoresearch orchestration resumed (likely context limit). Spawn the next autoresearch worker to continue experiments. ${BENCHMARK_GUARDRAIL}`
-    );
   });
 
   // When in autoresearch mode, add a static note to the system prompt.
@@ -3064,8 +3022,6 @@ export default function autoresearchExtension(pi: ExtensionAPI) {
 
       if (command === "off") {
         runtime.autoresearchMode = false;
-        runtime.lastAutoResumeTime = 0;
-        runtime.autoResumeTurns = 0;
         runtime.experimentsThisSession = 0;
         runtime.lastRunChecks = null;
         runtime.runningExperiment = null;
@@ -3085,8 +3041,6 @@ export default function autoresearchExtension(pi: ExtensionAPI) {
         runtime.autoresearchMode = false;
         runtimeStore.stopPolling(getSessionKey(ctx));
         runtime.dashboardExpanded = false;
-        runtime.lastAutoResumeTime = 0;
-        runtime.autoResumeTurns = 0;
         runtime.experimentsThisSession = 0;
         runtime.lastRunChecks = null;
         runtime.runningExperiment = null;
@@ -3117,7 +3071,6 @@ export default function autoresearchExtension(pi: ExtensionAPI) {
 
       runtime.autoresearchMode = true;
       runtime.isOrchestrator = true;
-      runtime.autoResumeTurns = 0;
 
       // Refresh state from jsonl so dashboard and system prompt have fresh data
       reconstructState(ctx);

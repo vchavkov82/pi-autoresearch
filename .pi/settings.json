@@ -1,0 +1,12 @@
+{
+  "packages": [
+    {
+      "source": "git:github.com/HazAT/pi-autoresearch",
+      "extensions": [],
+      "skills": []
+    }
+  ],
+  "extensions": [
+    "../extensions/pi-autoresearch/index.ts"
+  ]
+}
