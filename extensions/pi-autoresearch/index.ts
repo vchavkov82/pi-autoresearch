@@ -979,8 +979,8 @@ function renderDashboardLines(
     headerHint
       ? appendRightAlignedAdaptiveHint(headerLine, width, th, [
           headerHint,
-          "ctrl+x collapse • full: c-s-x",
-          "ctrl+x • c-s-x",
+          "ctrl+e collapse • full: c-s-x",
+          "ctrl+e • c-s-x",
         ])
       : truncateToWidth(headerLine, width, "…", true)
   );
@@ -1367,7 +1367,7 @@ export default function autoresearchExtension(pi: ExtensionAPI) {
               safeWidth,
               theme,
               rows,
-              "ctrl+x collapse • ctrl+shift+x fullscreen"
+              "ctrl+e collapse • ctrl+shift+x fullscreen"
             ),
           ];
         },
@@ -1469,9 +1469,9 @@ export default function autoresearchExtension(pi: ExtensionAPI) {
           const left = [...essential, ...optional].join("");
           return [
             appendRightAlignedAdaptiveHint(left, safeWidth, theme, [
-              "ctrl+x expand • ctrl+shift+x fullscreen",
-              "ctrl+x expand • full: c-s-x",
-              "ctrl+x • c-s-x",
+              "ctrl+e expand • ctrl+shift+x fullscreen",
+              "ctrl+e expand • full: c-s-x",
+              "ctrl+e • c-s-x",
             ]),
           ];
         },
@@ -2610,7 +2610,7 @@ export default function autoresearchExtension(pi: ExtensionAPI) {
   // Ctrl+X — toggle dashboard expand/collapse
   // -----------------------------------------------------------------------
 
-  pi.registerShortcut("ctrl+x", {
+  pi.registerShortcut("ctrl+e", {
     description: "Toggle autoresearch dashboard",
     handler: async (ctx) => {
       const runtime = getRuntime(ctx);
